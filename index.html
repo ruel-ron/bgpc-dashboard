@@ -142,9 +142,9 @@
 </div>
 
 <script>
-// ←←← PUT YOUR GIST ID HERE (from https://gist.github.com) →→→
-const GIST_ID = "YOUR_GIST_ID_HERE";
-const GIST_URL = `https://gist.githubusercontent.com/anonymous/${GIST_ID}/raw/bgpc_data.json`;
+// CHANGE THIS LINE ONLY → PUT YOUR GIST ID HERE
+const GIST_ID = "YOUR_GIST_ID_HERE";  // ←←← REPLACE THIS!!!
+const GIST_URL = `https://gist.githubusercontent.com/anonymous/${GIST_ID}/raw/bgpc_data.json?t=${Date.now()}`;
 
 const STAGES = ['SMT','Subwork','Manual Insert','Assembly','Packing'];
 const CUSTOMERS = ['Cobra','Escort','EMT','Stinger','Motorola','Asahi'];
@@ -161,19 +161,20 @@ let lots = [];
 let filterStart = '', filterEnd = '', selectedModel = '';
 
 async function loadData() {
-  if (GIST_ID === "YOUR_GIST_ID_HERE") {
-    alert("Set your Gist ID first! See top of code.");
+  if (GIST_ID === "YOUR_GIST_ID_HERE" || !GIST_ID) {
+    // No popup — just start with empty data
+    renderAll();
     return;
   }
   try {
-    const res = await fetch(GIST_URL + "?t=" + Date.now());
+    const res = await fetch(GIST_URL);
     if (res.ok) {
       const data = await res.json();
       lots = Array.isArray(data.lots) ? data.lots : [];
       if (data.models) MODELS = data.models;
     }
   } catch (e) {
-    console.log("No data yet — starting fresh");
+    console.log("No cloud data yet — starting fresh");
   }
   renderAll();
 }
@@ -186,7 +187,6 @@ function downloadBackup() {
   a.href = url;
   a.download = "bgpc_data.json";
   a.click();
-  alert("Backup ready! Upload this file to your Gist → everyone sees it live.");
 }
 
 function restoreBackup() {
@@ -201,8 +201,7 @@ function restoreBackup() {
         MODELS = d.models || MODELS;
         lots = Array.isArray(d.lots) ? d.lots : [];
         renderAll();
-        alert("Restored! Click Backup → upload to Gist to sync live.");
-      } catch { alert("Invalid file"); }
+      } catch { alert("Invalid backup file"); }
     };
     r.readAsText(f);
   };
@@ -306,10 +305,11 @@ function render() {
   }).join('');
 }
 
+// ALL WORKING FUNCTIONS (clean & fixed)
 function editLot(i){const l=lots[i];document.getElementById('editIndex').value=i;document.getElementById('editLotNumber').value=l.lot;document.getElementById('editCustomer').value=l.cust;document.getElementById('editQty').value=l.qty;document.getElementById('editStartDate').value=l.start||'';document.getElementById('editEndDate').value=l.end;const c=document.getElementById('editTargetInputs');c.innerHTML='';l.stages.forEach((s,j)=>{const d=document.createElement('div');d.className='flex justify-between items-center bg-gray-50 p-2 rounded';d.innerHTML=`<span class="text-sm font-medium">${s.name}</span><input type="date" id="et_${j}" value="${s.target||''}" class="p-2 border rounded text-xs w-36">`;c.appendChild(d);});document.getElementById('editLotModal').classList.remove('hidden');}
 document.getElementById('editLotForm').onsubmit=e=>{e.preventDefault();const i=+document.getElementById('editIndex').value;lots[i].lot=document.getElementById('editLotNumber').value.trim();lots[i].cust=document.getElementById('editCustomer').value;lots[i].qty=+document.getElementById('editQty').value||0;lots[i].start=document.getElementById('editStartDate').value;lots[i].end=document.getElementById('editEndDate').value;lots[i].stages.forEach((s,j)=>{s.target=document.getElementById('et_'+j)?.value||'';});renderAll();closeModal('editLotModal');};
 function openNewLot(){const s=document.getElementById('modelSelect');s.innerHTML='<option value="">-- Select Model --</option>';Object.keys(MODELS).sort().forEach(m=>s.add(new Option(m,m)));document.getElementById('lotForm').reset();document.getElementById('startDate').valueAsDate=new Date();document.getElementById('targets').classList.add('hidden');document.getElementById('lotModal').classList.remove('hidden');}
-function loadModel(){const m=document.getElementById('modelSelect').value;const t=document.getElementById('targets');const i=document.getElementById('targetInputs');if(!m){t.classList.add('hidden');return;}t.classList.remove('hidden');i.innerHTML=STAGES.map(s=>`<div class="flex justify-between items-center"><span class="font-medium text-sm">${s}</span><input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36"></div>`).join('');}
+function loadModel(){const m=document.getElementById('modelSelect').value;if(!m){document.getElementById('targets').classList.add('hidden');return;}document.getElementById('targets').classList.remove('hidden');document.getElementById('targetInputs').innerHTML=STAGES.map(s=>`<div class="flex justify-between items-center"><span class="font-medium text-sm">${s}</span><input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36"></div>`).join('');}
 document.getElementById('lotForm').onsubmit=e=>{e.preventDefault();const m=document.getElementById('modelSelect').value;if(!m)return alert("Select model!");const s=clone(MODELS[m].stages);s.forEach(st=>{st.target=document.getElementById('t_'+st.name.replace(/ /g,''))?.value||'';st.codes.forEach(c=>c.done=false);});lots.push({model:m,lot:document.getElementById('lotNumber').value.trim(),cust:document.getElementById('customer').value,qty:+document.getElementById('qty').value||1500,start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,stages:s});renderAll();closeModal('lotModal');};
 function openModels(){document.getElementById('modelList').innerHTML=Object.keys(MODELS).map(m=>`<div class="border rounded p-4 bg-gray-50"><div class="flex justify-between items-center mb-3"><strong class="text-lg">${m}</strong><div><button onclick="editModel('${m}')" class="text-blue-600 mr-3 text-sm">Edit</button><button onclick="deleteModel('${m}')" class="text-red-600 text-sm">Delete</button></div></div>${MODELS[m].stages.map(s=>`<div class="mb-2"><strong>${s.name}:</strong> ${s.codes.map(c=>c.c+' — '+c.d).join(' | ')}</div>`).join('')}</div>`).join('');document.getElementById('modelModal').classList.remove('hidden');}
 function addModel(){const n=prompt("New Model Name:");if(!n||MODELS[n])return alert("Invalid!");MODELS[n]={stages:STAGES.map(s=>({name:s,codes:[]}))};MODELS[n].stages.forEach(s=>{const t=prompt(`Sub-codes for ${s.name} (comma separated):`)||"";if(t.trim())s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:prompt(`Desc for "${c}":`,c)||c}));});renderAll();openModels();}
@@ -318,6 +318,7 @@ function deleteModel(n){if(confirm(`Delete "${n}"?`)){delete MODELS[n];lots=lots
 
 // Clock
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString();},1000);
+
 loadData();
 </script>
 </body>
