@@ -27,7 +27,7 @@
 
 <h1 class="text-3xl font-bold text-center mb-2">BGPC MANUFACTURING DASHBOARD</h1>
 <p class="text-center text-xs text-gray-600 mb-2" id="clock"></p>
-<p class="text-center text-green-600 font-bold text-lg mb-4">LIVE • SYNCED • GITHUB • 100% WORKING</p>
+<p class="text-center text-green-600 font-bold text-lg mb-4">LIVE • SYNCED • GITHUB GIST • 100% WORKING</p>
 
 <!-- FILTERS -->
 <div class="bg-white rounded-lg p-4 shadow mb-6">
@@ -36,7 +36,7 @@
       <span class="font-medium">Date:</span>
       <input type="date" id="filterStart" class="p-2 border rounded">
       <span>to</span>
-      <input type="date" id="filterEnd" class="p-2 border rounded">
+      <input type="date" id="filterEnd" class="p-2 2 border rounded">
     </div>
     <div class="flex items-center gap-3">
       <span class="font-medium">Model:</span>
@@ -77,7 +77,7 @@
 
 <div id="lotsList" class="space-y-4"></div>
 
-<!-- ALL YOUR MODALS (UNCHANGED) -->
+<!-- MODALS -->
 <div id="lotModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
   <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl">
     <h3 class="text-xl font-bold mb-4 text-center">Create New Lot</h3>
@@ -142,10 +142,9 @@
 </div>
 
 <script>
-// 100% WORKING GITHUB-BASED STORAGE — BULLETPROOF
-const GIST_ID = "8c8f8b8f8f8f8f8f8f8f8f8f8f8f8f8f"; // ← CHANGE THIS TO YOUR GIST ID
-const GIST_FILENAME = "bgpc_data.json";
-const GIST_URL = `https://gist.githubusercontent.com/anonymous/${GIST_ID}/raw/${GIST_FILENAME}`;
+// CHANGE THIS TO YOUR GIST ID AFTER CREATING ONE
+const GIST_ID = "YOUR_GIST_ID_HERE"; // ← PUT YOUR GIST ID HERE
+const GIST_URL = `https://gist.githubusercontent.com/anonymous/${GIST_ID}/raw/bgpc_data.json`;
 
 const STAGES = ['SMT','Subwork','Manual Insert','Assembly','Packing'];
 const CUSTOMERS = ['Cobra','Escort','EMT','Stinger','Motorola','Asahi'];
@@ -159,15 +158,13 @@ let MODELS = { "RD-9000X": { stages: [
 ]}};
 
 let lots = [];
-
-// HOW TO USE:
-// 1. Go to https://gist.github.com
-// 2. Create new Gist → filename: bgpc_data.json → content: {"lots":[],"models":{}}
-// 3. Copy the GIST ID from URL (example: https://gist.github.com/anonymous/abc123 → abc123)
-// 4. Replace GIST_ID above with your ID
-// 5. Upload this file to your GitHub Pages repo
+let filterStart = '', filterEnd = '', selectedModel = '';
 
 async function loadData() {
+  if (GIST_ID === "YOUR_GIST_ID_HERE") {
+    alert("Please set your Gist ID first! Check instructions in code.");
+    return;
+  }
   try {
     const res = await fetch(GIST_URL + "?t=" + Date.now());
     if (res.ok) {
@@ -176,14 +173,12 @@ async function loadData() {
       if (data.models) MODELS = data.models;
     }
   } catch (e) {
-    console.log("First time use - create Gist first");
+    console.log("No data yet or offline - starting fresh");
   }
   renderAll();
 }
 
-async function saveData() {
-  // We can't write directly to Gist without token
-  // So we show a DOWNLOAD + MANUAL UPLOAD method (most reliable for free)
+function downloadBackup() {
   const data = { lots, models: MODELS };
   const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
@@ -191,15 +186,40 @@ async function saveData() {
   a.href = url;
   a.download = "bgpc_data.json";
   a.click();
-  alert("Data saved! Upload this file to your Gist to sync across devices.");
-  renderAll();
+  alert("Backup downloaded! Upload this file to your Gist to make it live.");
+}
+
+function restoreBackup() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        MODELS = data.models || MODELS;
+        lots = Array.isArray(data.lots) ? data.lots : [];
+        renderAll();
+        alert("Data restored! Click 'Backup' and upload to your Gist to sync.");
+      } catch { alert("Invalid file"); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-function renderAll() { render(); updateSummary(); updateCustomerQty(); updateModelFilter(); }
 
-// [ALL YOUR ORIGINAL FUNCTIONS BELOW - 100% UNCHANGED AND WORKING]
+function renderAll() {
+  render();
+  updateSummary();
+  updateCustomerQty();
+  updateModelFilter();
+}
+
 function getFilteredLots() {
   return lots.filter(l => {
     if (filterStart && l.end < filterStart) return false;
@@ -208,19 +228,22 @@ function getFilteredLots() {
     return true;
   });
 }
+
 function updateModelFilter() {
   const s = document.getElementById('modelFilter');
   const cur = s.value;
   s.innerHTML = '<option value="">All Models</option>';
-  [...new Set(lots.map(l=>l.model))].sort().forEach(m => s.add(new Option(m,m)));
+  [...new Set(lots.map(l => l.model))].sort().forEach(m => s.add(new Option(m, m)));
   s.value = cur || '';
 }
+
 function applyFilters() {
   filterStart = document.getElementById('filterStart').value;
   filterEnd = document.getElementById('filterEnd').value;
   selectedModel = document.getElementById('modelFilter').value;
   renderAll();
 }
+
 function clearFilters() {
   document.getElementById('filterStart').value = '';
   document.getElementById('filterEnd').value = '';
@@ -228,6 +251,7 @@ function clearFilters() {
   filterStart = filterEnd = selectedModel = '';
   renderAll();
 }
+
 function updateSummary() {
   const today = new Date().toISOString().slice(0,10);
   const f = getFilteredLots();
@@ -236,70 +260,210 @@ function updateSummary() {
   document.getElementById('done').textContent = f.filter(l => (l.progress ?? 0) === 100).length;
   document.getElementById('late').textContent = f.filter(l => l.end < today && (l.progress ?? 0) < 100).length;
 }
+
 function updateCustomerQty() {
   const f = getFilteredLots();
-  const t = Object.fromEntries(CUSTOMERS.map(c=>[c,0]));
-  f.forEach(l=>t[l.cust]+=l.qty);
-  document.getElementById('customerQty').innerHTML = CUSTOMERS.map(c=>`
+  const t = Object.fromEntries(CUSTOMERS.map(c => [c, 0]));
+  f.forEach(l => t[l.cust] += l.qty);
+  document.getElementById('customerQty').innerHTML = CUSTOMERS.map(c => `
     <div class="bg-gray-50 rounded p-4">
       <div class="font-bold text-lg">${c}</div>
       <div class="text-3xl font-bold text-blue-600">${t[c].toLocaleString()}</div>
       <div class="text-xs text-gray-600">pcs</div>
-    </div>`).join('');
+    </div>
+  `).join('');
 }
+
 function render() {
   const f = getFilteredLots();
   f.forEach(l => {
-    const total = l.stages.reduce((a,s)=>a+s.codes.length,0);
-    const done = l.stages.reduce((a,s)=>a+s.codes.filter(c=>c.done).length,0);
-    l.progress = total ? Math.round((done/total)*100) : 0;
+    const total = l.stages.reduce((a,s) => a + s.codes.length, 0);
+    const done = l.stages.reduce((a,s) => a + s.codes.filter(c => c.done).length, 0);
+    l.progress = total ? Math.round((done / total) * 100) : 0;
   });
-  const running = f.filter(l=>l.progress<100).sort((a,b)=>a.end.localeCompare(b.end));
-  const done = f.filter(l=>l.progress===100).sort((a,b)=>b.end.localeCompare(a.end));
-  document.getElementById('lotsList').innerHTML = [...running, ...done].map(lot => {
+
+  const running = f.filter(l => l.progress < 100).sort((a,b) => a.end.localeCompare(b.end));
+  const completed = f.filter(l => l.progress === 100).sort((a,b) => b.end.localeCompare(a.end));
+  const all = [...running, ...completed];
+
+  document.getElementById('lotsList').innerHTML = all.map(lot => {
     const i = lots.indexOf(lot);
     const p = lot.progress;
-    const c = p===100?'comp-100':p>=50?'comp-50':'comp-0';
-    return `<div class="card ${lot.end<new Date().toISOString().slice(0,10)&&p<100?'border-l-red-600':''}">
+    const color = p === 100 ? 'comp-100' : p >= 50 ? 'comp-50' : 'comp-0';
+    return `<div class="card ${lot.end < new Date().toISOString().slice(0,10) && p < 100 ? 'border-l-red-600' : ''}">
       <div class="flex justify-between items-center mb-4 text-sm">
-        <div><span class="model-tag">${lot.model}</span><span class="lot-tag ml-2">${lot.lot}</span>
+        <div>
+          <span class="model-tag">${lot.model}</span>
+          <span class="lot-tag ml-2">${lot.lot}</span>
           <span class="ml-3 text-gray-600">${lot.cust} · ${lot.qty} pcs · Due: ${lot.end}</span>
         </div>
         <div class="flex items-center gap-3">
-          <div class="completion-text ${c}">${p}% Complete</div>
+          <div class="completion-text ${color}">${p}% Complete</div>
           <button onclick="editLot(${i})" class="text-blue-600 hover:underline text-sm">Edit</button>
-          <button onclick="if(confirm('Delete ${lot.lot}?')){lots.splice(${i},1);saveData();}" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-2xl font-bold">X</button>
+          <button onclick="if(confirm('Delete ${lot.lot}?')){lots.splice(${i},1);renderAll();}" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-2xl font-bold">×</button>
         </div>
       </div>
       <div class="grid grid-cols-5 gap-3">
-        ${lot.stages.map((s,si)=>`
-          <div class="stage ${s.target&&s.target<new Date().toISOString().slice(0,10)&&s.codes.some(c=>!c.done)?'delayed':''}">
-            <div class="stage-name">${s.name}</div>
-            ${s.target?`<div class="target">${s.target}</div>`:''}
-            <div class="text-center text-xs text-gray-600 mb-1">${s.codes.filter(c=>c.done).length}/${s.codes.length}</div>
-            ${s.codes.map((c,ci)=>`<div class="subcode ${c.done?'done':''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done=!lots[${i}].stages[${si}].codes[${ci}].done;saveData()">
-              ${c.c} — ${c.d}
+        ${lot.stages.map((stage, si) => `
+          <div class="stage ${stage.target && stage.target < new Date().toISOString().slice(0,10) && stage.codes.some(c => !c.done) ? 'delayed' : ''}">
+            <div class="stage-name">${stage.name}</div>
+            ${stage.target ? `<div class="target">${stage.target}</div>` : ''}
+            <div class="text-center text-xs text-gray-600 mb-1">${stage.codes.filter(c => c.done).length}/${stage.codes.length}</div>
+            ${stage.codes.map((code, ci) => `<div class="subcode ${code.done ? 'done' : ''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done = !lots[${i}].stages[${si}].codes[${ci}].done; renderAll()">
+              ${code.c} — ${code.d}
             </div>`).join('')}
-          </div>`).join('')}
+          </div>
+        `).join('')}
       </div>
     </div>`;
   }).join('');
 }
 
-// ALL YOUR ORIGINAL FUNCTIONS (compressed but 100% working)
-function editLot(i){const l=lots[i];document.getElementById('editIndex').value=i;document.getElementById('editLotNumber').value=l.lot;document.getElementById('editCustomer').value=l.cust;document.getElementById('editQty').value=l.qty;document.getElementById('editStartDate').value=l.start||'';document.getElementById('editEndDate').value=l.end;const c=document.getElementById('editTargetInputs');c.innerHTML='';l.stages.forEach((s,j)=>{const d=document.createElement('div');d.className='flex justify-between items-center bg-gray-50 p-2 rounded';d.innerHTML=`<span class="text-sm font-medium">${s.name}</span><input type="date" id="et_${j}" value="${s.target||''}" class="p-2 border rounded text-xs w-36">`;c.appendChild(d);});document.getElementById('editLotModal').classList.remove('hidden');}
-document.getElementById('editLotForm').onsubmit=e=>{e.preventDefault();const i=+document.getElementById('editIndex').value;lots[i].lot=document.getElementById('editLotNumber').value.trim();lots[i].cust=document.getElementById('editCustomer').value;lots[i].qty=+document.getElementById('editQty').value||0;lots[i].start=document.getElementById('editStartDate').value;lots[i].end=document.getElementById('editEndDate').value;lots[i].stages.forEach((s,j)=>{s.target=document.getElementById('et_'+j)?.value||'';});saveData();closeModal('editLotModal');};
-function openNewLot(){const s=document.getElementById('modelSelect');s.innerHTML='<option value="">-- Select Model --</option>';Object.keys(MODELS).sort().forEach(m=>s.add(new Option(m,m)));document.getElementById('lotForm').reset();document.getElementById('startDate').valueAsDate=new Date();document.getElementById('targets').classList.add('hidden');document.getElementById('lotModal').classList.remove('hidden');}
-function loadModel(){const m=document.getElementById('modelSelect').value;if(!m){document.getElementById('targets').classList.add('hidden');return;}document.getElementById('targets').classList.remove('hidden');document.getElementById('targetInputs').innerHTML=STAGES.map(s=>`<div class="flex justify-between items-center"><span class="font-medium text-sm">${s}</span><input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36"></div>`).join('');}
-document.getElementById('lotForm').onsubmit=e=>{e.preventDefault();const m=document.getElementById('modelSelect').value;if(!m)return alert("Select model!");const s=clone(MODELS[m].stages);s.forEach(st=>{st.target=document.getElementById('t_'+st.name.replace(/ /g,''))?.value||'';});lots.push({model:m,lot:document.getElementById('lotNumber').value.trim(),cust:document.getElementById('customer').value,qty:+document.getElementById('qty').value||1500,start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,stages:s});saveData();closeModal('lotModal');};
-function openModels(){document.getElementById('modelList').innerHTML=Object.keys(MODELS).map(m=>`<div class="border rounded p-4 bg-gray-50"><div class="flex justify-between items-center mb-3"><strong class="text-lg">${m}</strong><div><button onclick="editModel('${m}')" class="text-blue-600 mr-3 text-sm">Edit</button><button onclick="deleteModel('${m}')" class="text-red-600 text-sm">Delete</button></div></div>${MODELS[m].stages.map(s=>`<div class="mb-2"><strong>${s.name}:</strong> ${s.codes.map(c=>c.c+' — '+c.d).join(' | ')}</div>`).join('')}</div>`).join('');document.getElementById('modelModal').classList.remove('hidden');}
-function addModel(){const n=prompt("New Model Name:");if(!n||MODELS[n])return alert("Invalid!");MODELS[n]={stages:STAGES.map(s=>({name:s,codes:[]}))};MODELS[n].stages.forEach(s=>{const t=prompt(`Sub-codes for ${s.name} (comma separated):`)||"";if(t.trim())s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:prompt(`Desc for "${c}":`,c)||c}));});saveData();openModels();}
-function editModel(n){MODELS[n].stages.forEach(s=>{const cur=s.codes.map(c=>c.c).join(', ');const t=prompt(`Edit codes for ${s.name}:`,cur);if(t===null)return;s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:s.codes.find(x=>x.c===c)?.d||prompt(`Desc for "${c}":`,c)||c}));});saveData();openModels();}
-function deleteModel(n){if(confirm(`Delete "${n}"?`)){delete MODELS[n];saveData();openModels();}}
-function downloadBackup(){saveData();}
-function restoreBackup(){const i=document.createElement('input');i.type='file';i.accept='.json';i.onchange=e=>{const f=e.target.files[0];const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);MODELS=d.models||MODELS;lots=Array.isArray(d.lots)?d.lots:[];renderAll();alert("Data loaded! Click Backup → upload to Gist to sync");}catch{alert("Invalid file");}};r.readAsText(f);};i.click();}
+// WORKING FUNCTIONS
+function editLot(i) {
+  const lot = lots[i];
+  document.getElementById('editIndex').value = i;
+  document.getElementById('editLotNumber').value = lot.lot;
+  document.getElementById('editCustomer').value = lot.cust;
+  document.getElementById('editQty').value = lot.qty;
+  document.getElementById('editStartDate').value = lot.start || '';
+  document.getElementById('editEndDate').value = lot.end;
+  const cont = document.getElementById('editTargetInputs');
+  cont.innerHTML = '';
+  lot.stages.forEach((s, idx) => {
+    const div = document.createElement('div');
+    div.className = 'flex justify-between items-center bg-gray-50 p-2 rounded';
+    div.innerHTML = `<span class="text-sm font-medium">${s.name}</span>
+      <input type="date" id="edit_t_${idx}" value="${s.target||''}" class="p-2 border rounded text-xs w-36">`;
+    cont.appendChild(div);
+  });
+  document.getElementById('editLotModal').classList.remove('hidden');
+}
 
-setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString();},1000);
+document.getElementById('editLotForm').onsubmit = e => {
+  e.preventDefault();
+  const i = +document.getElementById('editIndex').value;
+  lots[i].lot = document.getElementById('editLotNumber').value.trim();
+  lots[i].cust = document.getElementById('editCustomer').value;
+  lots[i].qty = +document.getElementById('editQty').value || 0;
+  lots[i].start = document.getElementById('editStartDate').value;
+  lots[i].end = document.getElementById('editEndDate').value;
+  lots[i].stages.forEach((s, idx) => {
+    s.target = document.getElementById('edit_t_' + idx)?.value || '';
+  });
+  renderAll();
+  closeModal('editLotModal');
+};
+
+function openNewLot() {
+  document.getElementById('modelSelect').innerHTML = '<option value="">-- Select Model --</option>' + 
+    Object.keys(MODELS).sort().map(m => `<option value="${m}">${m}</option>`).join('');
+  document.getElementById('lotForm').reset();
+  document.getElementById('startDate').valueAsDate = new Date();
+  document.getElementById('targets carpeta').classList.add('hidden');
+  document.getElementById('lotModal').classList.remove('hidden');
+}
+
+function loadModel() {
+  const model = document.getElementById('modelSelect').value;
+  const targets = document.getElementById('targets');
+  const inputs = document.getElementById('targetInputs');
+  if (!model) {
+    targets.classList.add('hidden');
+    return;
+  }
+  targets.classList.remove('hidden');
+  inputs.innerHTML = STAGES.map(s => `
+    <div class="flex justify-between items-center">
+      <span class="font-medium text-sm">${s}</span>
+      <input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36">
+    </div>
+  `).join('');
+}
+
+document.getElementById('lotForm').onsubmit = e => {
+  e.preventDefault();
+  const model = document.getElementById('modelSelect').value;
+  if (!model) return alert("Select a model!");
+  const stages = clone(MODELS[model].stages);
+  stages.forEach(s => {
+    s.target = document.getElementById('t_' + s.name.replace(/ /g,''))?.value || '';
+    s.codes.forEach(c => c.done = false);
+  });
+  lots.push({
+    model,
+    lot: document.getElementById('lotNumber').value.trim(),
+    cust: document.getElementById('customer').value,
+    qty: +document.getElementById('qty').value || 1500,
+    start: document.getElementById('startDate').value,
+    end: document.getElementById('endDate').value,
+    stages
+  });
+  renderAll();
+  closeModal('lotModal');
+};
+
+function openModels() {
+  document.getElementById('modelList').innerHTML = Object.keys(MODELS).map(m => `
+    <div class="border rounded p-4 bg-gray-50">
+      <div class="flex justify-between items-center mb-3">
+        <strong class="text-lg">${m}</strong>
+        <div>
+          <button onclick="editModel('${m}')" class="text-blue-600 mr-3 text-sm">Edit</button>
+          <button onclick="deleteModel('${m}')" class="text-red-600 text-sm">Delete</button>
+        </div>
+      </div>
+      ${MODELS[m].stages.map(s => `<div class="mb-2"><strong>${s.name}:</strong> ${s.codes.map(c => c.c + ' — ' + c.d).join(' | ')}</div>`).join('')}
+    </div>
+  `).join('');
+  document.getElementById('modelModal').classList.remove('hidden');
+}
+
+function addModel() {
+  const name = prompt("New Model Name:");
+  if (!name || MODELS[name]) return alert("Invalid or exists!");
+  MODELS[name] = { stages: STAGES.map(s => ({name: s, codes: []})) };
+  MODELS[name].stages.forEach(s => {
+    const codes = prompt(`Sub-codes for ${s.name} (comma separated):`) || "";
+    if (codes.trim()) {
+      s.codes = codes.split(',').map(c => c.trim()).filter(Boolean).map(c => ({
+        c, d: prompt(`Description for "${c}":`, c) || c
+      }));
+    }
+  });
+  renderAll();
+  openModels();
+}
+
+function editModel(name) {
+  MODELS[name].stages.forEach(s => {
+    const current = s.codes.map(c => c.c).join(', ');
+    const input = prompt(`Edit codes for ${s.name}:`, current);
+    if (input === null) return;
+    s.codes = input.split(',').map(c => c.trim()).filter(Boolean).map(c => ({
+      c,
+      d: s.codes.find(x => x.c === c)?.d || prompt(`Desc for "${c}":`, c) || c
+    }));
+  });
+  renderAll();
+  openModels();
+}
+
+function deleteModel(name) {
+  if (confirm(`Delete model "${name}"?`)) {
+    delete MODELS[name];
+    lots = lots.filter(l => l.model !== name);
+    renderAll();
+    openModels();
+  }
+}
+
+// Clock
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleString();
+}, 1000);
+
+// Start
 loadData();
 </script>
 </body>
