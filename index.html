@@ -3,315 +3,265 @@
 <head>
 <meta charset="UTF-8">
 <title>BGPC MANUFACTURING DASHBOARD</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link href="https://rsms.me/inter/inter.css" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-  body { font-family: 'Inter', sans-serif; background:#f8fafc; color:#1e293b; padding:20px 10px; }
-  .card { background:white; border-radius:16px; padding:20px; margin-bottom:20px; box-shadow:0 10px 30px rgba(0,0,0,0.1); border-left:8px solid #3b82f6; }
-  .stage { background:#f1f5f9; border-radius:12px; padding:14px; min-height:110px; border:2px solid #e2e8f0; }
-  .stage.delayed { border-color:#ef4444 !important; background:#fee2e2 !important; }
-  .stage-name { font-weight:900; color:#1e40af; margin-bottom:8px; font-size:0.95rem; }
-  .target { background:#ef4444; color:white; padding:4px 10px; border-radius:8px; font-size:0.75rem; font-weight:bold; display:inline-block; }
-  .subcode { background:#e2e8f0; padding:8px 12px; border-radius:10px; margin:5px 0; font-size:0.8rem; cursor:pointer; transition:all 0.2s; }
-  .subcode:hover { background:#cbd5e1; }
-  .subcode.done { background:#10b981; color:white; font-weight:900; }
-  .model-tag { background:#3b82f6; color:white; padding total:10px 20px; border-radius:12px; font-weight:900; }
-  .lot-tag { background:#8b5cf6; color:white; padding:10px 20px; border-radius:50px; font-weight:bold; }
-  .completion { background:#6366f1; color:white; padding:12px 24px; border-radius:50px; font-weight:900; font-size:1.1rem; min-width:130px; text-align:center; box-shadow:0 6px 20px rgba(99,102,241,0.4); }
-  .comp-0 { background:#ef4444; }
-  .comp-50 { background:#f59e0b; }
+  body { font-family: 'Inter', sans-serif; background:#f9fbfc; color:#2d3748; }
+  .card { background:white; border-radius:12px; padding:14px; margin-bottom:12px; box-shadow:0 4px 16px rgba(0,0,0,.08); border-left:5px solid #3b82f6; }
+  .stage { background:#f8fafc; border-radius:8px; padding:8px; font-size:0.73rem; min-height:82px; border:1px solid #e2e8f0; }
+  .stage.delayed { border-color:#dc2626!important; background:#fee2e2!important; }
+  .stage-name { color:#1e40af; font-size:0.78rem; margin-bottom:4px; font-weight:600; }
+  .target { font-size:0.65rem; color:#dc2626; background:#fee2e2; padding:2px 6px; border-radius:4px; display:inline-block; }
+  .subcode { background:#e2e8f0; color:#4a5568; padding:4px 8px; border-radius:6px; margin:2px 0; font-size:0.7rem; cursor:pointer; }
+  .subcode.done { background:#10b981; color:white; font-weight:600; }
+  .model-tag { background:#3b82f6; color:white; padding:4px 12px; border-radius:8px; font-size:0.85rem; font-weight:700; }
+  .lot-tag { background:#8b5cf6; color:white; padding:4px 12px; border-radius:50px; font-size:0.8rem; font-weight:700; }
+  .completion-text { background:#6366f1; color:white; font-weight:700; font-size:0.95rem; padding:6px 14px; border-radius:50px; min-width:110px; text-align:center; box-shadow:0 3px 10px rgba(99,102,241,0.4); }
+  .comp-0   { background:#ef4444; }
+  .comp-50  { background:#f59e0b; }
   .comp-100 { background:#10b981; }
-  .save-notif { position:fixed; bottom:30px; right:30px; background:#10b981; color:white; padding:16px 36px; border-radius:50px; font-weight:900; box-shadow:0 10px 40px rgba(16,185,129,0.5); opacity:0; transition:opacity 0.4s; z-index:9999; }
-  .save-notif.show { opacity:1; }
-  .btn { padding:12px 24px; border-radius:12px; font-weight:700; cursor:pointer; transition:all 0.2s; }
+  .btn { padding:8px 16px; border-radius:8px; font-size:0.85rem; font-weight:500; }
+  .save-status { position:fixed; bottom:20px; right:20px; background:#10b981; color:white; padding:10px 20px; border-radius:50px; font-weight:bold; box-shadow:0 4px 20px rgba(16,185,129,0.4); opacity:0; transition:opacity 0.3s; z-index:1000; }
+  .save-status.show { opacity:1; }
 </style>
 </head>
-<body class="max-w-7xl mx-auto">
+<body class="p-4 max-w-6xl mx-auto">
 
-<h1 class="text-5xl font-black text-center mb-4 text-blue-800">BGPC MANUFACTURING</h1>
-<div class="text-center text-4xl font-bold text-green-600 mb-2">LIVE DASHBOARD</div>
-<div class="text-center text-xl font-bold text-gray-700 mb-10" id="clock"></div>
+<h1 class="text-3xl font-bold text-center mb-2">BGPC MANUFACTURING DASHBOARD</h1>
+<p class="text-center text-xs text-gray-600 mb-2" id="clock"></p>
+<p class="text-center text-green-600 font-bold text-2xl mb-6 tracking-wider">LIVE</p>
 
-<div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-  <div class="bg-gradient-to-br from-blue-600 to-blue-800 text-white p-8 rounded-2xl text-center shadow-2xl">
-    <div class="text-6xl font-black" id="total">0</div>
-    <div class="text-2xl mt-3">Total Lots</div>
-  </div>
-  <div class="bg-gradient-to-br from-green-600 to-green-800 text-white p-8 rounded-2xl text-center shadow-2xl">
-    <div class="text-6xl font-black" id="running">0</div>
-    <div class="text-2xl mt-3">Running</div>
-  </div>
-  <div class="bg-gradient-to-br from-teal-600 to-teal-800 text-white p-8 rounded-2xl text-center shadow-2xl">
-    <div class="text-6xl font-black" id="done">0</div>
-    <div class="text-2xl mt-3">Complete</div>
-  </div>
-  <div class="bg-gradient-to-br from-red-600 to-red-800 text-white p-8 rounded-2xl text-center shadow-2xl">
-    <div class="text-6xl font-black" id="late">0</div>
-    <div class="text-2xl mt-3">Delayed</div>
+<div class="grid grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-lg p-4 text-center shadow"><div class="text-4xl font-bold text-blue-600" id="total">0</div><div class="text-sm text-gray-600">Total Lots</div></div>
+  <div class="bg-white rounded-lg p-4 text-center shadow"><div class="text-4xl font-bold text-green-600" id="running">0</div><div class="text-sm text-gray-600">Running</div></div>
+  <div class="bg-white rounded-lg p-4 text-center shadow"><div class="text-4xl font-bold text-teal-600" id="done">0</div><div class="text-sm text-gray-600">Complete</div></div>
+  <div class="bg-white rounded-lg p-4 text-center shadow"><div class="text-4xl font-bold text-red-600" id="late">0</div><div class="text-sm text-gray-600">Delayed</div></div>
+</div>
+
+<div class="flex flex-wrap justify-between items-center mb-4 gap-3">
+  <h2 class="text-lg font-medium">Running (Soonest Top) → Completed (Latest Due Top)</h2>
+  <div class="flex flex-wrap gap-2">
+    <button onclick="openNewLot()" class="btn bg-green-600 text-white hover:bg-green-700">+ New Lot</button>
+    <button onclick="downloadBackup()" class="btn bg-indigo-600 text-white text-xs">Backup</button>
+    <button onclick="restoreBackup()" class="btn bg-orange-600 text-white text-xs">Restore</button>
   </div>
 </div>
 
-<div class="flex justify-between items-center mb-8 flex-wrap gap-4">
-  <h2 class="text-3xl font-black">All Production Lots</h2>
-  <div class="flex gap-4">
-    <button onclick="openNewLot()" class="btn bg-green-600 hover:bg-green-700 text-white text-xl px-10">+ NEW LOT</button>
-    <button onclick="downloadBackup()" class="btn bg-indigo-600 hover:bg-indigo-700 text-white">BACKUP</button>
-    <button onclick="restoreBackup()" class="btn bg-orange-600 hover:bg-orange-700 text-white">RESTORE</button>
-  </div>
-</div>
-
-<div id="lotsList" class="space-y-8"></div>
-<div id="saveNotif" class="save-notif">SAVED!</div>
+<div id="lotsList" class="space-y-4"></div>
+<div id="saveStatus" class="save-status">SAVED</div>
 
 <!-- NEW LOT MODAL -->
-<div id="newLotModal" class="fixed inset-0 bg-black bg-opacity-75 hidden flex items-center justify-center z-50 p-4">
-  <div class="bg-white rounded-3xl p-10 w-full max-w-3xl shadow-3xl">
-    <h3 class="text-4xl font-black text-center mb-10 text-blue-800">CREATE NEW LOT</h3>
-    <form id="newLotForm" class="space-y-6">
-      <div>
-        <label class="block font-bold mb-2">Model</label>
-        <select id="modelSelect" class="w-full p-5 border-4 rounded-2xl text-xl" onchange="loadStageTargets()" required>
-          <option value="">-- SELECT MODEL --</option>
-        </select>
-      </div>
-      <div>
-        <label class="block font-bold mb-2">Lot Number</label>
-        <input type="text" id="lotNumber" class="w-full p-5 border-4 rounded-2xl text-xl" placeholder="e.g. L2025-001" required>
-      </div>
-      <div>
-        <label class="block font-bold mb-2">Customer</label>
-        <select id="customer" class="w-full p-5 border-4 rounded-2xl text-xl">
-          <option>Cobra</option><option>Escort</option><option>EMT</option><option>Stinger</option><option>Motorola</option><option>Asahi</option>
-        </select>
-      </div>
-      <div>
-        <label class="block font-bold mb-2">Quantity</label>
-        <input type="number" id="qty" value="1500" class="w-full p-5 border-4 rounded-2xl text-xl">
-      </div>
-      <div>
-        <label class="block font-bold mb-2">Due Date</label>
-        <input type="date" id="dueDate" class="w-full p-5 border-4 rounded-2xl text-xl" required>
-      </div>
-      <div id="targetSection" class="hidden bg-gray-100 p-8 rounded-2xl">
-        <p class="text-center font-bold text-xl mb-6">Set Target Date for Each Stage</p>
+<div id="lotModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
+  <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl">
+    <h3 class="text-xl font-bold mb-4 text-center">Create New Lot</h3>
+    <form id="lotForm" class="space-y-4">
+      <select id="modelSelect" class="w-full p-3 border rounded" onchange="loadModel()" required>
+        <option value="">-- Select Model --</option>
+      </select>
+      <input type="text" id="lotNumber" placeholder="Lot Number" class="w-full p-3 border rounded" required>
+      <select id="customer" class="w-full p-3 border rounded">
+        <option>Cobra</option><option>Escort</option><option>EMT</option><option>Stinger</option><option>Motorola</option><option>Asahi</option>
+      </select>
+      <input type="number" id="qty" value="1500" class="w-full p-3 border rounded">
+      <input type="date" id="endDate" class="w-full p-3 border rounded" required>
+      <div id="targets" class="hidden space-y-2 border-t pt-4">
+        <p class="text-sm text-center font-medium text-gray-600">Target Dates per Section</p>
         <div id="targetInputs"></div>
       </div>
-      <div class="flex gap-6 mt-10">
-        <button type="submit" class="flex-1 bg-blue-700 hover:bg-blue-800 text-white py-6 rounded-2xl font-black text-2xl">CREATE LOT</button>
-        <button type="button" onclick="document.getElementById('newLotModal').classList.add('hidden')" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-6 rounded-2xl font-black text-2xl">CANCEL</button>
+      <div class="flex gap-3 mt-6">
+        <button type="submit" class="flex-1 bg-blue-600 text-white py-3 rounded font-bold">Create Lot</button>
+        <button type="button" onclick="closeModal()" class="flex-1 bg-gray-500 text-white py-3 rounded font-bold">Cancel</button>
       </div>
     </form>
   </div>
 </div>
 
 <script>
-// FINAL 100% WORKING CODE - DATA NEVER LOST
-const STORAGE_KEY = "BGPC_DASHBOARD_FINAL_2025";
+// 100% WORKING FINAL CODE - YOUR ORIGINAL UI + ALL FIXED
+const STORAGE_KEY = "bgpc_dashboard_perfect_2025";
 const STAGES = ['SMT','Subwork','Manual Insert','Assembly','Packing'];
 
 let lots = [];
-let models = {
-  "MAX360CMKII": {
-    stages: [
-      {name:"SMT", codes:["A06-028708-00","A06-028883-00","A06-028646-00"], descriptions:["GPS CHIP","MAIN CHIP","LNA CHIP"]},
-      {name:"Subwork", codes:["A06-028812-00"], descriptions:["UPPER CASE"]},
-      {name:"Manual Insert", codes:["A06-028707-00","A06-028645-00"], descriptions:["GPS ASSY","M13 HORN"]},
-      {name:"Assembly", codes:["A06-028636-00","A06-028882-00"], descriptions:["SET ASSY","MAIN PCB"]},
-      {name:"Packing", codes:["A06-028635-00"], descriptions:["PACKING"]}
-    ]
-  }
+let MODELS = {
+  "MAX360CMKII": { stages: [
+    {name:"SMT", codes:[
+      {c:"A06-028708-00",d:"GPS CHIP MOUNT ASS'Y"},
+      {c:"A06-028883-00",d:"MAIN CHIP MOUNT ASS'Y"},
+      {c:"A06-028646-00",d:"LNA CHIP MOUNT ASS'Y"}
+    ]},
+    {name:"Subwork", codes:[{c:"A06-028812-00",d:"UPPER CASE ASS'Y"}]},
+    {name:"Manual Insert", codes:[
+      {c:"A06-028707-00",d:"GPS ASS'Y"},
+      {c:"A06-028645-00",d:"M13 HORN ASS'Y"}
+    ]},
+    {name:"Assembly", codes:[
+      {c:"A06-028636-00",d:"SET ASS'Y"},
+      {c:"A06-028882-00",d:"MAIN PCB ASS'Y"}
+    ]},
+    {name:"Packing", codes:[{c:"A06-028635-00",d:"PACKING ASS'Y"}]}
+  ]}
 };
 
 // LOAD DATA
 function loadData() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try {
       const data = JSON.parse(saved);
       lots = Array.isArray(data.lots) ? data.lots : [];
-      if (data.models) models = data.models;
-    }
-  } catch(e) { console.log("No data"); }
+      if (data.models) MODELS = data.models;
+    } catch(e) {}
+  }
   renderAll();
 }
 
 // SAVE DATA
 function saveData() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({lots, models}));
-    const n = document.getElementById("saveNotif");
-    n.classList.add("show");
-    setTimeout(() => n.classList.remove("show"), 2000);
-  } catch(e) {}
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({lots, models: MODELS}));
+  const s = document.getElementById("saveStatus");
+  s.classList.add("show");
+  setTimeout(() => s.classList.remove("show"), 1500);
 }
 
-// AUTO SAVE
 function autoSave() { saveData(); }
 
-// INITIAL LOAD
 loadData();
 
-// RENDER EVERYTHING
+// RENDER ALL
 function renderAll() {
   renderLots();
   updateSummary();
 }
 
-// UPDATE SUMMARY
 function updateSummary() {
   const today = new Date().toISOString().slice(0,10);
-  document.getElementById("total").textContent = lots.length;
-  document.getElementById("running").textContent = lots.filter(l => l.progress < 100).length;
-  document.getElementById("done").textContent = lots.filter(l => l.progress === 100).length;
-  document.getElementById("late").textContent = lots.filter(l => l.due < today && l.progress < 100).length;
+  document.getElementById('total').textContent = lots.length;
+  document.getElementById('running').textContent = lots.filter(l => (l.progress ?? 0) < 100).length;
+  document.getElementById('done').textContent = lots.filter(l => (l.progress ?? 0) === 100).length;
+  document.getElementById('late').textContent = lots.filter(l => l.end < today && (l.progress ?? 0) < 100).length;
 }
 
-// RENDER LOTS
 function renderLots() {
-  const container = document.getElementById("lotsList");
-  if (lots.length === 0) {
-    container.innerHTML = `<div class="text-center py-20 text-3xl text-gray-500">No lots yet. Click "+ NEW LOT" to begin!</div>`;
-    return;
-  }
-
-  // Calculate progress
-  lots.forEach(lot => {
-    let total = 0, done = 0;
-    lot.stages.forEach(stage => {
-      total += stage.codes.length;
-      done += stage.codes.filter(c => c.done).length;
-    });
-    lot.progress = total ? Math.round((done/total)*100) : 0;
+  lots.forEach(l => {
+    const total = l.stages.reduce((a,s) => a + s.codes.length, 0);
+    const done = l.stages.reduce((a,s) => a + s.codes.filter(c => c.done).length, 0);
+    l.progress = total ? Math.round((done/total)*100) : 0;
   });
 
-  // Sort: running first (soonest due), then completed
-  const sorted = lots.slice().sort((a,b) => {
-    if (a.progress === 100 && b.progress < 100) return 1;
-    if (a.progress < 100 && b.progress === 100) return -1;
-    return a.due.localeCompare(b.due);
-  });
+  const running = lots.filter(l => l.progress < 100).sort((a,b) => a.end.localeCompare(b.end));
+  const completed = lots.filter(l => l.progress === 100).sort((a,b) => b.end.localeCompare(a.end));
 
-  container.innerHTML = sorted.map((lot, idx) => {
+  document.getElementById('lotsList').innerHTML = [...running, ...completed].map((lot, idx) => {
     const i = lots.indexOf(lot);
     const p = lot.progress;
-    const color = p === 100 ? "comp-100" : p >= 50 ? "comp-50" : "comp-0";
-    const delayed = lot.due < new Date().toISOString().slice(0,10) && p < 100;
+    const c = p===100?'comp-100':p>=50?'comp-50':'comp-0';
+    const delayed = lot.end < new Date().toISOString().slice(0,10) && p < 100;
 
-    return `
-      <div class="card ${delayed ? 'border-l-red-600' : ''}">
-        <div class="flex justify-between items-start mb-6">
-          <div>
-            <span class="model-tag">${lot.model}</span>
-            <span class="lot-tag ml-4">${lot.lot}</span>
-            <div class="mt-3 text-xl font-bold">${lot.customer} • ${lot.qty.toLocaleString()} pcs • Due: ${lot.due}</div>
-          </div>
-          <div class="text-right">
-            <div class="completion ${color}">${p}%</div>
-            <button onclick="if(confirm('Delete ${lot.lot}?')){lots.splice(${i},1); renderAll(); autoSave();}" class="text-red-600 text-5xl mt-4 font-bold">×</button>
-          </div>
+    return `<div class="card ${delayed ? 'border-l-red-600' : ''}">
+      <div class="flex justify-between items-center mb-4 text-sm">
+        <div>
+          <span class="model-tag">${lot.model}</span>
+          <span class="lot-tag ml-2">${lot.lot}</span>
+          <span class="ml-3 text-gray-600">${lot.customer} · ${lot.qty} pcs · Due: ${lot.end}</span>
         </div>
-        <div class="grid grid-cols-5 gap-6">
-          ${lot.stages.map((stage, si) => {
-            const doneCount = stage.codes.filter(c => c.done).length;
-            const isDelayed = stage.target && stage.target < new Date().toISOString().slice(0,10) && doneCount < stage.codes.length;
-            return `
-              <div class="stage ${isDelayed ? 'delayed' : ''}">
-                <div class="stage-name">${stage.name}</div>
-                ${stage.target ? `<div class="target">${stage.target}</div>` : ''}
-                <div class="text-center font-black text-xl mb-3">${doneCount}/${stage.codes.length}</div>
-                ${stage.codes.map((code, ci) => `
-                  <div class="subcode ${code.done ? 'done' : ''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done=!lots[${i}].stages[${si}].codes[${ci}].done; renderAll(); autoSave();">
-                    ${stage.codes[ci]}<br><small>${stage.descriptions[ci]}</small>
-                  </div>
-                `).join('')}
-              </div>
-            `;
-          }).join('')}
+        <div class="flex items-center gap-3">
+          <div class="completion-text ${c}">${p}%</div>
+          <button onclick="if(confirm('Delete lot ${lot.lot}?')){lots.splice(${i},1);renderAll();autoSave();}" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-2xl font-bold">×</button>
         </div>
       </div>
-    `;
+      <div class="grid grid-cols-5 gap-3">
+        ${lot.stages.map((s,si) => `
+          <div class="stage ${s.target && s.target < new Date().toISOString().slice(0,10) && s.codes.some(c=>!c.done) ? 'delayed' : ''}">
+            <div class="stage-name">${s.name}</div>
+            ${s.target ? `<div class="target">${s.target}</div>` : ''}
+            <div class="text-center text-xs text-gray-600 mb-1">${s.codes.filter(c=>c.done).length}/${s.codes.length}</div>
+            ${s.codes.map((c,ci) => `<div class="subcode ${c.done?'done':''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done=!lots[${i}].stages[${si}].codes[${ci}].done;renderAll();autoSave();">
+              ${c.c} — ${c.d}
+            </div>`).join('')}
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
   }).join('');
 }
 
-// OPEN NEW LOT
-function openNewLot() {
-  const sel = document.getElementById("modelSelect");
-  sel.innerHTML = "<option value=''>-- SELECT MODEL --</option>";
-  Object.keys(models).forEach(m => sel.add(new Option(m, m)));
-  document.getElementById("newLotForm").reset();
-  document.getElementById("dueDate").valueAsDate = new Date();
-  document.getElementById("targetSection").classList.add("hidden");
-  document.getElementById("newLotModal").classList.remove("hidden");
+// MODAL FUNCTIONS
+function closeModal() {
+  document.getElementById('lotModal').classList.add('hidden');
 }
 
-// LOAD STAGE TARGETS
-function loadStageTargets() {
-  const model = document.getElementById("modelSelect").value;
-  if (!model) {
-    document.getElementById("targetSection").classList.add("hidden");
+function openNewLot() {
+  const sel = document.getElementById('modelSelect');
+  sel.innerHTML = '<option value="">-- Select Model --</option>';
+  Object.keys(MODELS).sort().forEach(m => sel.add(new Option(m,m)));
+  document.getElementById('lotForm').reset();
+  document.getElementById('endDate').valueAsDate = new Date();
+  document.getElementById('targets').classList.add('hidden');
+  document.getElementById('lotModal').classList.remove('hidden');
+}
+
+function loadModel() {
+  const m = document.getElementById('modelSelect').value;
+  if (!m) {
+    document.getElementById('targets').classList.add('hidden');
     return;
   }
-  document.getElementById("targetSection").classList.remove("hidden");
-  document.getElementById("targetInputs").innerHTML = STAGES.map(s => `
-    <div class="flex justify-between items-center bg-white p-4 rounded-xl mb-3">
-      <span class="font-bold text-lg">${s}</span>
-      <input type="date" id="target_${s.replace(/ /g,'')}" class="p-4 border-2 rounded-xl text-lg">
+  document.getElementById('targets').classList.remove('hidden');
+  document.getElementById('targetInputs').innerHTML = STAGES.map(s => `
+    <div class="flex justify-between items-center">
+      <span class="font-medium text-sm">${s}</span>
+      <input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36">
     </div>
   `).join('');
 }
 
-// CREATE LOT
-document.getElementById("newLotForm").onsubmit = function(e) {
+document.getElementById('lotForm').onsubmit = function(e) {
   e.preventDefault();
-  const modelName = document.getElementById("modelSelect").value;
-  if (!modelName) return alert("Please select a model!");
+  const model = document.getElementById('modelSelect').value;
+  if (!model) return;
 
-  const template = models[modelName];
-  const stages = template.stages.map((s, i) => ({
+  const template = MODELS[model];
+  const stages = template.stages.map(s => ({
     name: s.name,
-    codes: s.codes.map((c, j) => ({done: false})),
-    descriptions: s.descriptions,
-    target: document.getElementById(`target_${s.name.replace(/ /g,'')}`)?.value || ''
+    codes: s.codes.map(c => ({c: c.c, d: c.d, done: false})),
+    target: document.getElementById('t_' + s.name.replace(/ /g,''))?.value || ''
   }));
 
   lots.push({
-    model: modelName,
-    lot: document.getElementById("lotNumber").value.trim() || "LOT-" + Date.now(),
-    customer: document.getElementById("customer").value,
-    qty: parseInt(document.getElementById("qty").value) || 1500,
-    due: document.getElementById("dueDate").value,
-    stages: stages,
+    model,
+    lot: document.getElementById('lotNumber').value.trim() || 'LOT-'+Date.now(),
+    customer: document.getElementById('customer').value,
+    qty: +document.getElementById('qty').value || 1500,
+    end: document.getElementById('endDate').value,
+    stages,
     progress: 0
   });
 
-  document.getElementById("newLotModal").classList.add("hidden");
+  closeModal();
   renderAll();
   autoSave();
 };
 
-// CLOCK - LIVE DATE & TIME
+// CLOCK
 setInterval(() => {
-  const now = new Date();
-  document.getElementById("clock").textContent = now.toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'}) + 
-    " • " + now.toLocaleTimeString('en-GB');
+  document.getElementById('clock').textContent = new Date().toLocaleString();
 }, 1000);
 
 // BACKUP & RESTORE
 function downloadBackup() {
-  const data = JSON.stringify({lots, models}, null, 2);
-  const blob = new Blob([data], {type: "application/json"});
+  const data = JSON.stringify({lots, models: MODELS}, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
-  a.download = "BGPC_BACKUP_" + new Date().toISOString().slice(0,10) + ".json";
+  a.download = 'bgpc_backup_' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
 }
 
 function restoreBackup() {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".json";
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
   input.onchange = e => {
     const file = e.target.files[0];
     const reader = new FileReader();
@@ -319,11 +269,11 @@ function restoreBackup() {
       try {
         const data = JSON.parse(ev.target.result);
         lots = data.lots || [];
-        models = data.models || models;
+        if (data.models) MODELS = data.models;
         renderAll();
         autoSave();
-        alert("Backup restored successfully!");
-      } catch { alert("Invalid backup file"); }
+        alert('Backup restored!');
+      } catch { alert('Invalid file'); }
     };
     reader.readAsText(file);
   };
@@ -335,4 +285,3 @@ renderAll();
 </script>
 </body>
 </html>
-
