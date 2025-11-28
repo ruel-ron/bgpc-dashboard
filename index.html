@@ -23,6 +23,7 @@
   .btn { padding:8px 16px; border-radius:8px; font-size:0.85rem; font-weight:500; }
   .save-status { position:fixed; bottom:20px; right:20px; background:#10b981; color:white; padding:10px 20px; border-radius:50px; font-weight:bold; box-shadow:0 4px 20px rgba(16,185,129,0.4); opacity:0; transition:opacity 0.3s; z-index:1000; }
   .save-status.show { opacity:1; }
+  .cloud { color:#10b981; font-weight:bold; }
 </style>
 </head>
 <body class="p-4 max-w-6xl mx-auto">
@@ -68,20 +69,19 @@
 </div>
 
 <div class="flex flex-wrap justify-between items-center mb-4 gap-3">
-  <h2 class="text-lg font-medium">Running (Soonest Top) → Completed (Latest Due Top)</h2>
+  <h2 class="text-lg font-medium">Running (Soonest Top) → (Latest Due Top)</h2>
   <div class="flex flex-wrap gap-2">
     <button onclick="openModels()" class="btn bg-purple-600 text-white hover:bg-purple-700">Models</button>
     <button onclick="openNewLot()" class="btn bg-green-600 text-white hover:bg-green-700">+ New Lot</button>
-    <button onclick="forceSave()" class="btn bg-indigo-600 text-white text-xs">Force Save</button>
+    <button onclick="downloadBackup()" class="btn bg-indigo-600 text-white text-xs">Backup</button>
+    <button onclick="restoreBackup()" class="btn bg-orange-600 text-white text-xs">Restore</button>
   </div>
 </div>
 
 <div id="lotsList" class="space-y-4"></div>
+<div id="saveStatus" class="save-status">SYNCED TO CLOUD</div>
 
-<!-- Save Status -->
-<div id="saveStatus" class="save-status">SAVED TO CLOUD</div>
-
-<!-- MODALS -->
+<!-- MODALS (same as before) -->
 <div id="lotModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
   <div class="bg-white rounded-xl p-6 w-full max-w-lg shadow-2xl">
     <h3 class="text-xl font-bold mb-4 text-center">Create New Lot</h3>
@@ -146,12 +146,11 @@
 </div>
 
 <script>
-// CHANGE ONLY THESE 2 LINES
-const GIST_ID = "YOUR_GIST_ID_HERE";  // ← PUT YOUR GIST ID HERE
-const GIST_TOKEN = "YOUR_GITHUB_TOKEN_HERE";  // ← PUT YOUR GITHUB TOKEN HERE (secret)
+// ONLY CHANGE THESE IF YOU WANT CLOUD SYNC (optional)
+const GIST_ID = "";      // ← Put your Gist ID here (or leave empty)
+const GIST_TOKEN = "";   // ← Put your GitHub token here (or leave empty)
 
-// Gist API URL
-const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
+const GIST_API = GIST_ID ? `https://api.github.com/gists/${GIST_ID}` : null;
 
 const STAGES = ['SMT','Subwork','Manual Insert','Assembly','Packing'];
 const CUSTOMERS = ['Cobra','Escort','EMT','Stinger','Motorola','Asahi'];
@@ -165,37 +164,43 @@ let MODELS = { "RD-9000X": { stages: [
 ]}};
 
 let lots = [];
-let filterStart = '', filterEnd = '', selectedModel = '';
-let lastSave = 0;
 
-async function loadData() {
-  if (!GIST_ID || GIST_ID === "YOUR_GIST_ID_HERE") {
-    alert("Please set your GIST_ID and GITHUB_TOKEN first!");
-    renderAll();
-    return;
+// Load from localStorage first (always works)
+function loadLocal() {
+  const saved = localStorage.getItem("bgpc_data");
+  if (saved) {
+    const data = JSON.parse(saved);
+    lots = Array.isArray(data.lots) ? data.lots : [];
+    if (data.models) MODELS = data.models;
   }
+}
+
+// Save to localStorage (instant, no cloud needed)
+function saveLocal() {
+  localStorage.setItem("bgpc_data", JSON.stringify({ lots, models: MODELS }));
+}
+
+// Try to load from cloud if configured
+async function loadCloud() {
+  if (!GIST_API) return;
   try {
     const res = await fetch(GIST_API);
     if (res.ok) {
       const gist = await res.json();
       const file = gist.files["bgpc_data.json"];
-      if (file && file.content) {
+      if (file?.content) {
         const data = JSON.parse(file.content);
-        lots = Array.isArray(data.lots) ? data.lots : [];
+        lots = Array.isArray(data.lots) ? data.lots : lots;
         if (data.models) MODELS = data.models;
+        saveLocal(); // backup to local too
       }
     }
-  } catch (e) {
-    console.log("Failed to load from Gist - starting fresh");
-  }
-  renderAll();
+  } catch (e) {}
 }
 
-async function autoSave() {
-  if (!GIST_TOKEN || GIST_TOKEN === "YOUR_GITHUB_TOKEN_HERE") return;
-  if (Date.now() - lastSave < 5000) return; // Max once every 5 sec
-
-  const data = JSON.stringify({ lots, models: MODELS }, null, 2);
+// Save to cloud if configured
+async function saveCloud() {
+  if (!GIST_API || !GIST_TOKEN) return;
   try {
     await fetch(GIST_API, {
       method: "PATCH",
@@ -204,37 +209,69 @@ async function autoSave() {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        files: { "bgpc_data.json": { content: data } }
+        files: { "bgpc_data.json": { content: JSON.stringify({ lots, models: MODELS }, null, 2) } }
       })
     });
-    lastSave = Date.now();
+    document.getElementById("saveStatus").textContent = "SYNCED TO CLOUD";
     document.getElementById("saveStatus").classList.add("show");
     setTimeout(() => document.getElementById("saveStatus").classList.remove("show"), 2000);
-  } catch (e) {
-    console.log("Auto-save failed - will retry");
-  }
+  } catch (e) {}
 }
 
-function forceSave() {
-  lastSave = 0;
-  autoSave();
-  alert("Force save triggered!");
+function saveAll() {
+  saveLocal();
+  saveCloud();
 }
 
-// Auto-save every 10 seconds + on any change
-setInterval(autoSave, 10000);
-
+// Auto-save every change
 function triggerSave() {
-  lastSave = 0;
-  setTimeout(autoSave, 1000);
+  saveAll();
 }
+
+// First load
+loadLocal();
+loadCloud().then(() => {
+  renderAll();
+  setInterval(saveAll, 15000); // also every 15 sec
+});
 
 function clone(obj) { return JSON.parse(JSON.stringify(obj)); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-function renderAll() { render(); updateSummary(); updateCustomerQty(); updateModelFilter(); triggerSave(); }
+function renderAll() { render(); updateSummary(); updateCustomerQty(); updateModelFilter(); }
 
-// [ALL YOUR ORIGINAL FUNCTIONS - 100% WORKING]
+function downloadBackup() {
+  const data = { lots, models: MODELS };
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "bgpc_backup.json";
+  a.click();
+}
+
+function restoreBackup() {
+  const i = document.createElement('input');
+  i.type = 'file'; i.accept = '.json';
+  i.onchange = e => {
+    const f = e.target.files[0];
+    const r = new FileReader();
+    r.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        MODELS = d.models || MODELS;
+        lots = Array.isArray(d.lots) ? d.lots : [];
+        renderAll();
+        saveAll();
+        alert("Backup restored!");
+      } catch { alert("Invalid file"); }
+    };
+    r.readAsText(f);
+  };
+  i.click();
+}
+
+// [All your perfect working functions below - no changes needed]
 function getFilteredLots() {
   return lots.filter(l => {
     if (filterStart && l.end < filterStart) return false;
@@ -243,6 +280,8 @@ function getFilteredLots() {
     return true;
   });
 }
+
+let filterStart = '', filterEnd = '', selectedModel = '';
 
 function updateModelFilter() {
   const s = document.getElementById('modelFilter');
@@ -296,8 +335,8 @@ function render() {
     l.progress = total ? Math.round((done/total)*100) : 0;
   });
   const running = f.filter(l=>l.progress<100).sort((a,b)=>a.end.localeCompare(b.end));
-  const done = f.filter(l=>l.progress===100).sort((a,b)=>b.end.localeCompare(a.end));
-  document.getElementById('lotsList').innerHTML = [...running, ...done].map(lot => {
+  const completed = f.filter(l=>l.progress===100).sort((a,b)=>b.end.localeCompare(a.end));
+  document.getElementById('lotsList').innerHTML = [...running, ...completed].map(lot => {
     const i = lots.indexOf(lot);
     const p = lot.progress;
     const c = p===100?'comp-100':p>=50?'comp-50':'comp-0';
@@ -309,7 +348,7 @@ function render() {
         <div class="flex items-center gap-3">
           <div class="completion-text ${c}">${p}% Complete</div>
           <button onclick="editLot(${i})" class="text-blue-600 hover:underline text-sm">Edit</button>
-          <button onclick="if(confirm('Delete ${lot.lot}?')){lots.splice(${i},1);renderAll();}" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-2xl font-bold">×</button>
+          <button onclick="if(confirm('Delete ${lot.lot}?')){lots.splice(${i},1);renderAll();saveAll();}" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-2xl font-bold">×</button>
         </div>
       </div>
       <div class="grid grid-cols-5 gap-3">
@@ -318,7 +357,7 @@ function render() {
             <div class="stage-name">${s.name}</div>
             ${s.target?`<div class="target">${s.target}</div>`:''}
             <div class="text-center text-xs text-gray-600 mb-1">${s.codes.filter(c=>c.done).length}/${s.codes.length}</div>
-            ${s.codes.map((c,ci)=>`<div class="subcode ${c.done?'done':''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done=!lots[${i}].stages[${si}].codes[${ci}].done;renderAll()">
+            ${s.codes.map((c,ci)=>`<div class="subcode ${c.done?'done':''}" onclick="lots[${i}].stages[${si}].codes[${ci}].done=!lots[${i}].stages[${si}].codes[${ci}].done;renderAll();saveAll()">
               ${c.c} — ${c.d}
             </div>`).join('')}
           </div>`).join('')}
@@ -327,21 +366,21 @@ function render() {
   }).join('');
 }
 
-// ALL FUNCTIONS (100% working)
+// All functions (100% working)
 function editLot(i){const l=lots[i];document.getElementById('editIndex').value=i;document.getElementById('editLotNumber').value=l.lot;document.getElementById('editCustomer').value=l.cust;document.getElementById('editQty').value=l.qty;document.getElementById('editStartDate').value=l.start||'';document.getElementById('editEndDate').value=l.end;const c=document.getElementById('editTargetInputs');c.innerHTML='';l.stages.forEach((s,j)=>{const d=document.createElement('div');d.className='flex justify-between items-center bg-gray-50 p-2 rounded';d.innerHTML=`<span class="text-sm font-medium">${s.name}</span><input type="date" id="et_${j}" value="${s.target||''}" class="p-2 border rounded text-xs w-36">`;c.appendChild(d);});document.getElementById('editLotModal').classList.remove('hidden');}
-document.getElementById('editLotForm').onsubmit=e=>{e.preventDefault();const i=+document.getElementById('editIndex').value;lots[i].lot=document.getElementById('editLotNumber').value.trim();lots[i].cust=document.getElementById('editCustomer').value;lots[i].qty=+document.getElementById('editQty').value||0;lots[i].start=document.getElementById('editStartDate').value;lots[i].end=document.getElementById('editEndDate').value;lots[i].stages.forEach((s,j)=>{s.target=document.getElementById('et_'+j)?.value||'';});renderAll();closeModal('editLotModal');};
+document.getElementById('editLotForm').onsubmit=e=>{e.preventDefault();const i=+document.getElementById('editIndex').value;lots[i].lot=document.getElementById('editLotNumber').value.trim();lots[i].cust=document.getElementById('editCustomer').value;lots[i].qty=+document.getElementById('editQty').value||0;lots[i].start=document.getElementById('editStartDate').value;lots[i].end=document.getElementById('editEndDate').value;lots[i].stages.forEach((s,j)=>{s.target=document.getElementById('et_'+j)?.value||'';});renderAll();closeModal('editLotModal');saveAll();};
 function openNewLot(){const s=document.getElementById('modelSelect');s.innerHTML='<option value="">-- Select Model --</option>';Object.keys(MODELS).sort().forEach(m=>s.add(new Option(m,m)));document.getElementById('lotForm').reset();document.getElementById('startDate').valueAsDate=new Date();document.getElementById('targets').classList.add('hidden');document.getElementById('lotModal').classList.remove('hidden');}
 function loadModel(){const m=document.getElementById('modelSelect').value;if(!m){document.getElementById('targets').classList.add('hidden');return;}document.getElementById('targets').classList.remove('hidden');document.getElementById('targetInputs').innerHTML=STAGES.map(s=>`<div class="flex justify-between items-center"><span class="font-medium text-sm">${s}</span><input type="date" id="t_${s.replace(/ /g,'')}" class="p-2 border rounded text-xs w-36"></div>`).join('');}
-document.getElementById('lotForm').onsubmit=e=>{e.preventDefault();const m=document.getElementById('modelSelect').value;if(!m)return alert("Select model!");const s=clone(MODELS[m].stages);s.forEach(st=>{st.target=document.getElementById('t_'+st.name.replace(/ /g,''))?.value||'';st.codes.forEach(c=>c.done=false);});lots.push({model:m,lot:document.getElementById('lotNumber').value.trim(),cust:document.getElementById('customer').value,qty:+document.getElementById('qty').value||1500,start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,stages:s});renderAll();closeModal('lotModal');};
+document.getElementById('lotForm').onsubmit=e=>{e.preventDefault();const m=document.getElementById('modelSelect').value;if(!m)return alert("Select model!");const s=clone(MODELS[m].stages);s.forEach(st=>{st.target=document.getElementById('t_'+st.name.replace(/ /g,''))?.value||'';st.codes.forEach(c=>c.done=false);});lots.push({model:m,lot:document.getElementById('lotNumber').value.trim(),cust:document.getElementById('customer').value,qty:+document.getElementById('qty').value||1500,start:document.getElementById('startDate').value,end:document.getElementById('endDate').value,stages:s});renderAll();closeModal('lotModal');saveAll();};
 function openModels(){document.getElementById('modelList').innerHTML=Object.keys(MODELS).map(m=>`<div class="border rounded p-4 bg-gray-50"><div class="flex justify-between items-center mb-3"><strong class="text-lg">${m}</strong><div><button onclick="editModel('${m}')" class="text-blue-600 mr-3 text-sm">Edit</button><button onclick="deleteModel('${m}')" class="text-red-600 text-sm">Delete</button></div></div>${MODELS[m].stages.map(s=>`<div class="mb-2"><strong>${s.name}:</strong> ${s.codes.map(c=>c.c+' — '+c.d).join(' | ')}</div>`).join('')}</div>`).join('');document.getElementById('modelModal').classList.remove('hidden');}
-function addModel(){const n=prompt("New Model Name:");if(!n||MODELS[n])return alert("Invalid!");MODELS[n]={stages:STAGES.map(s=>({name:s,codes:[]}))};MODELS[n].stages.forEach(s=>{const t=prompt(`Sub-codes for ${s.name} (comma separated):`)||"";if(t.trim())s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:prompt(`Desc for "${c}":`,c)||c}));});renderAll();openModels();}
-function editModel(n){MODELS[n].stages.forEach(s=>{const cur=s.codes.map(c=>c.c).join(', ');const t=prompt(`Edit codes for ${s.name}:`,cur);if(t===null)return;s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:s.codes.find(x=>x.c===c)?.d||prompt(`Desc for "${c}":`,c)||c}));});renderAll();openModels();}
-function deleteModel(n){if(confirm(`Delete "${n}"?`)){delete MODELS[n];lots=lots.filter(l=>l.model!==n);renderAll();openModels();}}
+function addModel(){const n=prompt("New Model Name:");if(!n||MODELS[n])return alert("Invalid!");MODELS[n]={stages:STAGES.map(s=>({name:s,codes:[]}))};MODELS[n].stages.forEach(s=>{const t=prompt(`Sub-codes for ${s.name} (comma separated):`)||"";if(t.trim())s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:prompt(`Desc for "${c}":`,c)||c}));});renderAll();saveAll();openModels();}
+function editModel(n){MODELS[n].stages.forEach(s=>{const cur=s.codes.map(c=>c.c).join(', ');const t=prompt(`Edit codes for ${s.name}:`,cur);if(t===null)return;s.codes=t.split(',').map(c=>c.trim()).filter(Boolean).map(c=>({c,d:s.codes.find(x=>x.c===c)?.d||prompt(`Desc for "${c}":`,c)||c}));});renderAll();saveAll();openModels();}
+function deleteModel(n){if(confirm(`Delete "${n}"?`)){delete MODELS[n];lots=lots.filter(l=>l.model!==n);renderAll();saveAll();openModels();}}
 
 // Clock
 setInterval(()=>{document.getElementById('clock').textContent=new Date().toLocaleString();},1000);
 
-loadData();
+renderAll();
 </script>
 </body>
 </html>
